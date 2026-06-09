@@ -2,6 +2,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
+    FRONTEND_URL: str 
     APP_NAME: str
 
     SECRET_KEY: str
