@@ -128,10 +128,8 @@ class CacheService:
             )
         )
 
-        return json.loads(response_cache.get(
-            key
-        ))
-    
+        return json.loads(response_cache.get(key)) if response_cache.get(key) else []
+                                                                         
     @staticmethod
     def set_response(
         user_id,
