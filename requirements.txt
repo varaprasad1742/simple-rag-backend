@@ -33,3 +33,5 @@ python-dotenv
 greenlet
 
 orjson
+
+aiosqlite
