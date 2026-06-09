@@ -37,3 +37,7 @@ orjson
 aiosqlite
 
 groq
+
+numpy
+asyncio
+python-jose

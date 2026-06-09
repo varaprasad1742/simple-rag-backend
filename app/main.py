@@ -7,9 +7,7 @@ from app.models.base import Base
 from app.models.user import User
 
 from app.core.database import engine
-from prometheus_client import (
-    generate_latest
-)
+
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import (
     Response
@@ -51,16 +49,6 @@ from app.api.auth import router as auth_router
 app.include_router(
     auth_router
 )
-
-
-
-@app.get("/metrics")
-async def metrics():
-
-    return Response(
-        generate_latest(),
-        media_type="text/plain"
-    )
 
 
 from app.api.documents import (
