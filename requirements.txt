@@ -40,4 +40,3 @@ groq
 
 numpy
 asyncio
-python-jose
