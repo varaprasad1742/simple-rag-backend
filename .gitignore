@@ -1,0 +1,5 @@
+.env
+rag.db
+qdrant
+uploads
+test.py
