@@ -26,6 +26,7 @@ from qdrant_client.models import (
     PointStruct
 )
 
+from qdrant_client.models import PayloadSchemaType
 
 class VectorStore:
 
@@ -48,20 +49,26 @@ class VectorStore:
             c.name
             for c in collections.collections
         }
-
+        
         if cls.COLLECTION_NAME in names:
-            return
+            
 
-        await cls.client.create_collection(
-            collection_name=
-            cls.COLLECTION_NAME,
+            await cls.client.create_collection(
+                collection_name=
+                cls.COLLECTION_NAME,
 
-            vectors_config=
-            VectorParams(
-                size=384,
-                distance=Distance.COSINE
+                vectors_config=
+                VectorParams(
+                    size=384,
+                    distance=Distance.COSINE
+                )
             )
-        )
+        await VectorStore.client.create_payload_index(
+        collection_name=cls.COLLECTION_NAME,
+        field_name="user_id",
+        field_schema=PayloadSchemaType.KEYWORD
+    )
+        
 
     @classmethod
     @observe("embed_chunks")
