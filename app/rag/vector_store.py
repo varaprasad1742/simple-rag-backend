@@ -50,7 +50,7 @@ class VectorStore:
             for c in collections.collections
         }
         
-        if cls.COLLECTION_NAME in names:
+        if cls.COLLECTION_NAME not in names:
             
 
             await cls.client.create_collection(
