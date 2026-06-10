@@ -15,9 +15,9 @@ from app.rag.embedder import (
 
 class SemanticParagraphChunker:
 
-    MAX_TOKENS = 512
+    MAX_TOKENS = 256
 
-    MIN_CHUNK_TOKENS = 256
+    MIN_CHUNK_TOKENS = 128
 
     OVERLAP_TOKENS = 50
 
