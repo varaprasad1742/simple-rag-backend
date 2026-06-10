@@ -62,8 +62,8 @@ class AuthService:
 
         if not user:
             raise HTTPException(
-                status_code=401,
-                detail="Invalid credentials"
+                status_code=404,
+                detail="User not found"
             )
 
         if not verify_password(
@@ -72,7 +72,7 @@ class AuthService:
         ):
             raise HTTPException(
                 status_code=401,
-                detail="Invalid credentials"
+                detail="Incorrect password"
             )
 
         token = create_access_token(
