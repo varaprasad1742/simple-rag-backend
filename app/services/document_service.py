@@ -43,7 +43,7 @@ class DocumentService:
     ):
 
         user_dir = (
-            f"uploads/{user_id}"
+            f"data/uploads/{user_id}"
         )
 
         os.makedirs(

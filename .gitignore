@@ -4,3 +4,4 @@ qdrant
 uploads
 test.py
 rag
+__pycache__/

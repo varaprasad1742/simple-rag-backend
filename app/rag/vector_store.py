@@ -33,7 +33,7 @@ class VectorStore:
     #     url=settings.QDRANT_URL,
     #     api_key = settings.QDRANT_API_KEY
     # )
-    client = AsyncQdrantClient(path="./qdrant")
+    client = AsyncQdrantClient(api_key=settings.QDRANT_API_KEY, url=settings.QDRANT_URL)
     COLLECTION_NAME = "documents"
     @classmethod
     async def create_collection(
@@ -90,12 +90,12 @@ class VectorStore:
     ):
         await cls.create_collection()
         points = []
-        print(chunks)
+    
         for chunk, embedding in zip(
             chunks,
             embeddings
         ):
-            print(chunk.content)
+
             points.append(
                 PointStruct(
                     id=chunk.id,
