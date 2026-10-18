@@ -1,19 +1,17 @@
----
-title: CogniRAG - Agentic RAG Platform
-emoji: 🚀
-colorFrom: indigo
-colorTo: purple
-sdk: docker
-app_port: 7860
-pinned: false
-license: mit
----
-
 # CogniRAG — Enterprise Agentic RAG Backend
+
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Groq](https://img.shields.io/badge/Groq-Llama--3.1-F55036?style=flat)](https://groq.com/)
+[![Qdrant](https://img.shields.io/badge/Qdrant-Vector_DB-DC143C?style=flat)](https://qdrant.tech/)
+[![HF Spaces](https://img.shields.io/badge/Hugging%20Face-Spaces-FFD21E?style=flat&logo=huggingface&logoColor=black)](https://huggingface.co/spaces)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](../LICENSE)
 
 An advanced, production-grade **Agentic Retrieval-Augmented Generation (RAG)** platform powered by **FastAPI**, **Local Qdrant Vector Store**, **Groq LLM (Llama-3.1)**, **Sentence-Transformers Embeddings**, and **Cross-Encoder Reranking**.
 
 Features dynamic **Query Transformation**, **Sufficiency Evaluation Grading**, an autonomous retrieval-refinement loop capped at **maximum 3 iterations**, comprehensive step-by-step telemetry, and document citations.
+
+> **Hugging Face Spaces**: This backend is Docker SDK compatible. Set `GROQ_API_KEY` and `SECRET_KEY` in Space Secrets, and the app will be served on port `7860`.
 
 ---
 
@@ -21,28 +19,44 @@ Features dynamic **Query Transformation**, **Sufficiency Evaluation Grading**, a
 
 ```mermaid
 flowchart TD
-    User([User Question]) --> CacheCheck{Cache Hit?}
-    CacheCheck -- Yes --> CachedAnswer([Instant Cached Answer])
-    CacheCheck -- No --> LoopInit[Start Agentic Loop: Iteration 1 of 3]
+    User(["User Question"]) --> CacheCheck{"Cache Hit?"}
+    CacheCheck -- Yes --> CachedAnswer(["Instant Cached Answer"])
+    CacheCheck -- No --> LoopInit["Start Agentic Loop\nIteration = 1"]
 
-    subgraph AgenticLoop [Agentic Retrieval & Transformation Loop (Max 3)]
-        LoopInit --> Embed[1. Dense Embedding: BAAI/bge-small-en-v1.5]
-        Embed --> VectorSearch[2. Vector Search: Local Qdrant Store]
-        VectorSearch --> Rerank[3. Cross-Encoder Reranking: ms-marco-MiniLM]
-        Rerank --> Accumulate[Merge & Deduplicate Top Passages]
-        Accumulate --> Evaluator{4. Sufficiency Grader: Is Context Relevant?}
-        
-        Evaluator -- "No & Loop < 3" --> Transform[Query Transformation: Groq Llama-3.1]
-        Transform --> |Reformulated Query| NextLoop[Increment Iteration: Loop + 1]
+    subgraph AgenticLoop ["Agentic Retrieval and Refinement Loop - Max 3 Iterations"]
+        direction TB
+        LoopInit --> Embed["Step 1 - Dense Embedding\nBAAI/bge-small-en-v1.5\n384-dim L2 normalized"]
+        Embed --> VectorSearch["Step 2 - Vector Search\nLocal Qdrant - Top-K Candidates"]
+        VectorSearch --> Rerank["Step 3 - Cross-Encoder Reranking\nms-marco-MiniLM-L-6-v2\nPrecision Scoring"]
+        Rerank --> Accumulate["Merge and Deduplicate\nAccumulate unique passages\nacross all iterations"]
+        Accumulate --> Evaluator{"Step 4 - Sufficiency Grader\nIs context relevant?"}
+
+        Evaluator -- "Insufficient and Iter less than 3" --> Transform["Query Transformation\nGroq Llama-3.1 rewrites query\nfor better semantic coverage"]
+        Transform --> NextLoop["Increment Iteration"]
         NextLoop --> Embed
     end
 
-    Evaluator -- "Yes (Sufficient)" --> Synthesis[5. LLM Synthesis & Citation Grounding]
+    Evaluator -- "Sufficient" --> Synthesis
     Evaluator -- "Max 3 Loops Reached" --> Synthesis
-    
-    Synthesis --> TraceSave[Save Telemetry Run & Steps to Trace DB]
-    TraceSave --> Response([Response with Verified Citations & Step Telemetry])
+
+    Synthesis["Step 5 - LLM Synthesis\nGroq Llama-3.1 generates answer\ngrounded in retrieved passages"] --> TraceSave["Save Telemetry\nTrace run, step durations,\nscores and metadata to SQLite"]
+    TraceSave --> Response(["Final Response\nAnswer - Citations - Trace ID - Step Telemetry"])
 ```
+
+### Step-by-Step Breakdown
+
+| Step | Component | What Happens |
+|------|-----------|--------------|
+| **1. Query Reception** | FastAPI endpoint | User question arrives; cache is checked first |
+| **2. Dense Embedding** | `BAAI/bge-small-en-v1.5` | Query embedded into 384-dim L2-normalized vector |
+| **3. Vector Search** | Local Qdrant | Top-K semantically similar chunks retrieved |
+| **4. Cross-Encoder Rerank** | `ms-marco-MiniLM-L-6-v2` | Chunks scored for passage-level relevance |
+| **5. Context Merging** | Deduplication logic | Unique passages across all loops merged and re-ranked |
+| **6. Sufficiency Grading** | Dual-mode grader | Score >= 1.5 = sufficient; Score <= -2.5 = transform; borderline = LLM JSON verdict |
+| **7. Query Transformation** | `Groq Llama-3.1-8b` | Query rewritten with expanded semantics if context insufficient |
+| **8. LLM Synthesis** | `Groq Llama-3.1-8b` | Top passages + question generates grounded answer with citations |
+| **9. Telemetry Save** | SQLite / Trace DB | Full step trace (durations, scores, iterations, token stats) persisted |
+| **10. Response** | JSON payload | Returns `answer`, `citations`, `trace_id`, and `steps` |
 
 ---
 
