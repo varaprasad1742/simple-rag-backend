@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 
 from app.core.config import settings
@@ -12,11 +13,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import (
     Response
 )
-from app.core.config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-
+    os.makedirs("data", exist_ok=True)
+    os.makedirs(os.path.join("data", "qdrant"), exist_ok=True)
     async with engine.begin() as conn:
         await conn.run_sync(
             Base.metadata.create_all

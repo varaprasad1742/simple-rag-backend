@@ -28,6 +28,8 @@ from app.services.document_service import (
 
 from app.repositories.chunk_repository import ChunkRepository
 from app.repositories.document_repository import DocumentRepository
+from app.services.cache_service import CacheService
+from app.rag.vector_store import VectorStore
 
 router = APIRouter(
     prefix="/documents",
@@ -60,6 +62,7 @@ async def list_documents(
             "id": doc.id,
             "filename": doc.filename,
             "file_path": doc.file_path,
+            "status": doc.status,
         }
         for doc in documents
     ]
@@ -168,6 +171,7 @@ async def get_document(
         "id": document.id,
         "filename": document.filename,
         "file_path": document.file_path,
+        "status": document.status,
     }
 
 
@@ -205,6 +209,8 @@ async def delete_document(
         )
     
     await DocumentRepository.delete(db, document_id)
+    await VectorStore.delete_document_vectors(document_id)
+    CacheService.invalidate_user(current_user.id)
     
     return {
         "message": f"Document {document_id} deleted successfully",

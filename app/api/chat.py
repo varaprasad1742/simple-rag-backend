@@ -46,7 +46,7 @@ router = APIRouter(
 
 @router.post("")
 async def create_chat(
-    payload: CreateChatRequest,
+    payload: CreateChatRequest = None,
     db: AsyncSession = Depends(
         get_db
     ),
@@ -54,12 +54,12 @@ async def create_chat(
         get_current_user
     )
 ):
-
+    title = (payload.title if payload and payload.title else "New Conversation").strip() or "New Conversation"
     chat = await (
         ChatManagementService.create_chat(
             db=db,
             user_id=current_user.id,
-            title=payload.title
+            title=title
         )
     )
 
@@ -133,7 +133,9 @@ async def get_chat(
                 "role": m.role,
                 "content": m.content,
                 "citations": json.loads(m.citations) if m.citations else [],
-                "created_at": m.created_at
+                "created_at": m.created_at.isoformat() if hasattr(m.created_at, "isoformat") else str(m.created_at),
+                "trace_id": getattr(m, "trace_id", None),
+                "steps": json.loads(m.steps_data) if getattr(m, "steps_data", None) else []
             }
             for m in messages
         ]

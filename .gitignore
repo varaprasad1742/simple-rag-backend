@@ -5,3 +5,4 @@ uploads
 test.py
 rag
 __pycache__/
+data

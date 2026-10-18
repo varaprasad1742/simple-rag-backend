@@ -51,6 +51,16 @@ class Message(Base):
         nullable=True
     )
 
+    trace_id: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True
+    )
+
+    steps_data: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.now

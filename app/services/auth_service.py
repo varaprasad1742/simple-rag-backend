@@ -85,3 +85,35 @@ class AuthService:
             "access_token": token,
             "token_type": "bearer"
         }
+
+    @staticmethod
+    async def update_profile(
+        db: AsyncSession,
+        current_user,
+        username: str = None,
+        email: str = None
+    ):
+        if email and email != current_user.email:
+            existing = await UserRepository.get_by_email(db, email)
+            if existing:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Email already in use"
+                )
+            current_user.email = email
+
+        await db.commit()
+        await db.refresh(current_user)
+        return current_user
+
+    @staticmethod
+    async def delete_account(
+        db: AsyncSession,
+        current_user
+    ):
+        await db.delete(current_user)
+        await db.commit()
+        return {
+            "message": "Account deleted successfully",
+            "status": "success"
+        }

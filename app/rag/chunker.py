@@ -334,3 +334,173 @@ class SemanticParagraphChunker:
             )
 
         return chunks
+
+
+class RecursiveChunker:
+    """
+    High-throughput recursive token chunker for larger documents.
+    Recursively splits using separators ["\n\n", "\n", ". ", " ", ""]
+    to produce balanced, context-preserving chunks with token overlap.
+    """
+    CHUNK_SIZE = 384
+    CHUNK_OVERLAP = 64
+    SEPARATORS = ["\n\n", "\n", ". ", " ", ""]
+
+    tokenizer = tiktoken.get_encoding("cl100k_base")
+
+    @classmethod
+    def count_tokens(cls, text: str) -> int:
+        return len(cls.tokenizer.encode(text))
+
+    @classmethod
+    def _split_text_recursive(cls, text: str, separators: list[str]) -> list[str]:
+        if not text.strip():
+            return []
+
+        if cls.count_tokens(text) <= cls.CHUNK_SIZE or not separators:
+            return [text]
+
+        sep = separators[0]
+        next_separators = separators[1:]
+
+        if sep == "":
+            tokens = cls.tokenizer.encode(text)
+            fragments = []
+            for i in range(0, len(tokens), cls.CHUNK_SIZE):
+                fragments.append(cls.tokenizer.decode(tokens[i : i + cls.CHUNK_SIZE]))
+            return fragments
+
+        if sep in text:
+            splits = text.split(sep)
+        else:
+            return cls._split_text_recursive(text, next_separators)
+
+        result = []
+        for piece in splits:
+            piece_str = piece.strip()
+            if not piece_str:
+                continue
+            if cls.count_tokens(piece_str) <= cls.CHUNK_SIZE:
+                result.append(piece_str)
+            else:
+                result.extend(cls._split_text_recursive(piece_str, next_separators))
+
+        return result
+
+    @classmethod
+    @observe("Recursive chunking Step 2.2.1")
+    async def chunk_text(cls, pages: list[dict]) -> list[dict]:
+        fragments = []
+        for page in pages:
+            page_text = page.get("text", "")
+            if not page_text.strip():
+                continue
+            page_frags = cls._split_text_recursive(page_text, cls.SEPARATORS)
+            for frag in page_frags:
+                fragments.append({
+                    "user_id": page["user_id"],
+                    "document_id": page["document_id"],
+                    "filename": page["filename"],
+                    "page_number": page["page_number"],
+                    "text": frag,
+                    "tokens": cls.count_tokens(frag)
+                })
+
+        if not fragments:
+            return []
+
+        chunks = []
+        chunk_index = 0
+        current_chunk_fragments = []
+        current_tokens = 0
+
+        for frag in fragments:
+            frag_tokens = frag["tokens"]
+            if current_chunk_fragments and (current_tokens + frag_tokens > cls.CHUNK_SIZE):
+                chunks.append(cls._build_chunk(chunk_index, current_chunk_fragments, current_tokens))
+                chunk_index += 1
+
+                overlap_fragments = []
+                overlap_tokens = 0
+                for prev in reversed(current_chunk_fragments):
+                    if overlap_tokens + prev["tokens"] > cls.CHUNK_OVERLAP:
+                        break
+                    overlap_fragments.insert(0, prev)
+                    overlap_tokens += prev["tokens"]
+
+                current_chunk_fragments = overlap_fragments + [frag]
+                current_tokens = overlap_tokens + frag_tokens
+            else:
+                current_chunk_fragments.append(frag)
+                current_tokens += frag_tokens
+
+        if current_chunk_fragments:
+            chunks.append(cls._build_chunk(chunk_index, current_chunk_fragments, current_tokens))
+
+        return chunks
+
+    @classmethod
+    def _build_chunk(cls, chunk_index: int, frags: list[dict], token_count: int) -> dict:
+        first = frags[0]
+        pages = [f["page_number"] for f in frags]
+        content = "\n\n".join(f["text"] for f in frags)
+        return {
+            "user_id": first["user_id"],
+            "document_id": first["document_id"],
+            "filename": first["filename"],
+            "chunk_index": chunk_index,
+            "start_page": min(pages),
+            "end_page": max(pages),
+            "token_count": token_count,
+            "content": content
+        }
+
+
+class ChunkerRouter:
+    """
+    Selects chunker strategy dynamically based on document size:
+    - Standard/Small documents (<= 2500 tokens & <= 5 pages): SemanticParagraphChunker
+      (optimal for high-precision semantic boundaries).
+    - Large documents (> 2500 tokens or > 5 pages): RecursiveChunker
+      (optimal for throughput and deep content without embedding bottlenecks).
+    """
+    LARGE_DOC_TOKEN_THRESHOLD = 2500
+    LARGE_DOC_PAGE_THRESHOLD = 5
+
+    @classmethod
+    @observe("Chunker Selection Step 2.2.0")
+    async def chunk_document(cls, pages: list[dict]) -> tuple[list[dict], str, dict]:
+        tokenizer = tiktoken.get_encoding("cl100k_base")
+        total_tokens = sum(len(tokenizer.encode(p.get("text", ""))) for p in pages)
+        page_count = len(pages)
+
+        is_large = (
+            total_tokens > cls.LARGE_DOC_TOKEN_THRESHOLD
+            or page_count > cls.LARGE_DOC_PAGE_THRESHOLD
+        )
+
+        if is_large:
+            strategy = "RecursiveChunker"
+            reason = (
+                f"Document size ({total_tokens} tokens, {page_count} pages) exceeds threshold "
+                f"({cls.LARGE_DOC_TOKEN_THRESHOLD} tokens / {cls.LARGE_DOC_PAGE_THRESHOLD} pages). "
+                f"Switched to high-performance RecursiveChunker."
+            )
+            chunks = await RecursiveChunker.chunk_text(pages)
+        else:
+            strategy = "SemanticParagraphChunker"
+            reason = (
+                f"Document size ({total_tokens} tokens, {page_count} pages) is within standard threshold. "
+                f"Using SemanticParagraphChunker for semantic boundary alignment."
+            )
+            chunks = await SemanticParagraphChunker.chunk_text(pages)
+
+        stats = {
+            "strategy": strategy,
+            "total_tokens": total_tokens,
+            "page_count": page_count,
+            "total_chunks": len(chunks),
+            "reason": reason
+        }
+
+        return chunks, strategy, stats

@@ -1,4 +1,5 @@
 import os
+import aiofiles
 
 from fastapi import UploadFile
 
@@ -19,7 +20,12 @@ from app.rag.parser import (
 from app.models.chunk import Chunk
 
 from app.rag.chunker import (
-    SemanticParagraphChunker
+    SemanticParagraphChunker,
+    RecursiveChunker,
+    ChunkerRouter
+)
+from app.observability.collector import (
+    update_step_metadata
 )
 
 from app.models.chunk import Chunk
@@ -57,11 +63,11 @@ class DocumentService:
 
         content = await file.read()
 
-        with open(
+        async with aiofiles.open(
             file_path,
             "wb"
         ) as f:
-            f.write(content)
+            await f.write(content)
 
         document = Document(
             user_id=user_id,
@@ -121,11 +127,12 @@ class DocumentService:
         db
     ):
 
-        chunks = await (
-            SemanticParagraphChunker.chunk_text(
+        chunks, strategy, stats = await (
+            ChunkerRouter.chunk_document(
                 pages
             )
         )
+        update_step_metadata("Creating Chunks Step 2.2", stats)
 
         entities = []
 

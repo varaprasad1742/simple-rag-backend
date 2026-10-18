@@ -22,6 +22,8 @@ class Reranker:
         results,
         top_k: int = 5
     ):
+        if not results:
+            return []
         pairs = []
         
         for result in results:
@@ -37,12 +39,14 @@ class Reranker:
             cls.model.predict,
             pairs
         )
-        reranked = list(
-            zip(
-                results,
-                scores
-            )
-        )
+        reranked = []
+        for result, score in zip(results, scores):
+            try:
+                result.score = float(score)
+            except Exception:
+                pass
+            reranked.append((result, float(score)))
+
         reranked.sort(
             key=lambda x: x[1],
             reverse=True

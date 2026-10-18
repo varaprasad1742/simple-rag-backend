@@ -40,3 +40,25 @@ class ChatManagementService:
                 user_id
             )
         )
+
+    @staticmethod
+    async def update_chat(
+        db,
+        chat_id: str,
+        title: str
+    ):
+        """
+        Update a chat's title
+        """
+        chat = await ChatRepository.get_by_id(db, chat_id)
+        return await ChatRepository.update(db, chat, title=title)
+
+    @staticmethod
+    async def delete_chat(
+        db,
+        chat_id: str
+    ):
+        """
+        Delete a chat and all its messages
+        """
+        await ChatRepository.delete(db, chat_id)

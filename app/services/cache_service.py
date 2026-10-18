@@ -128,7 +128,8 @@ class CacheService:
             )
         )
 
-        return json.loads(response_cache.get(key)) if response_cache.get(key) else []
+        cached = response_cache.get(key)
+        return json.loads(cached) if cached else None
                                                                          
     @staticmethod
     def set_response(
@@ -165,6 +166,7 @@ class CacheService:
 
         if not data:
             return
+
         for key in data["retrieval"]:
             retrieval_cache.pop(
                 key,
@@ -175,6 +177,8 @@ class CacheService:
                 key,
                 None
             )
+        data["retrieval"].clear()
+        data["response"].clear()
 
 
     @staticmethod

@@ -111,6 +111,35 @@ async def search_traces(
     ]
 
 
+@router.get("/latest")
+async def latest_trace(
+    db: AsyncSession = Depends(
+        get_db
+    ),
+    current_user=Depends(
+        get_current_user
+    )
+):
+    traces = await (
+        TraceRepository
+        .get_user_traces(
+            db,
+            current_user.id,
+            limit=1
+        )
+    )
+    if not traces:
+        return None
+
+    return {
+        "trace_id":
+        traces[0].trace_id,
+
+        "pipeline_type":
+        traces[0].pipeline_type
+    }
+
+
 @router.get(
     "/{trace_id}"
 )
@@ -189,33 +218,7 @@ async def get_trace(
         }
 
 
-@router.get("/latest")
-async def latest_trace(
-    db: AsyncSession = Depends(
-        get_db
-    ),
-    current_user=Depends(
-        get_current_user
-    )
-):
-    traces = await (
-        TraceRepository
-        .get_user_traces(
-            db,
-            current_user.id,
-            limit=1
-        )
-    )
-    if not traces:
-        return None
 
-    return {
-        "trace_id":
-        traces[0].trace_id,
-
-        "pipeline_type":
-        traces[0].pipeline_type
-    }
 
 
 @router.delete("/{trace_id}")
@@ -251,7 +254,7 @@ async def delete_trace(
             detail="Forbidden"
         )
     
-    await TraceRepository.delete(db, run.id)
+    await TraceRepository.delete_trace(db, trace_id)
     
     return {
         "message": f"Trace {trace_id} deleted successfully",

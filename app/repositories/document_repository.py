@@ -7,6 +7,7 @@ from sqlalchemy import select, delete
 from app.models.document import (
     Document
 )
+from app.models.chunk import Chunk
 
 
 class DocumentRepository:
@@ -97,6 +98,12 @@ class DocumentRepository:
         """
         Delete a document by ID
         """
+        await db.execute(
+            delete(Chunk)
+            .where(
+                Chunk.document_id == document_id
+            )
+        )
         await db.execute(
             delete(Document)
             .where(

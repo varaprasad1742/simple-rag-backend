@@ -1,3 +1,4 @@
+import asyncio
 import fitz
 
 from app.observability.decorators import (
@@ -16,25 +17,23 @@ class PDFParser:
         filename: str
     ):
 
-        pdf = fitz.open(file_path)
+        def _parse():
+            pdf = fitz.open(file_path)
+            pages = []
+            for idx, page in enumerate(
+                pdf,
+                start=1
+            ):
+                pages.append(
+                    {
+                        "user_id": user_id,
+                        "document_id": document_id,
+                        "filename": filename,
+                        "page_number": idx,
+                        "text": page.get_text()
+                    }
+                )
+            pdf.close()
+            return pages
 
-        pages = []
-
-        for idx, page in enumerate(
-            pdf,
-            start=1
-        ):
-
-            pages.append(
-                {
-                    "user_id": user_id,
-                    "document_id": document_id,
-                    "filename": filename,
-                    "page_number": idx,
-                    "text": page.get_text()
-                }
-            )
-
-        pdf.close()
-
-        return pages
+        return await asyncio.to_thread(_parse)
